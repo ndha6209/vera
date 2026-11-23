@@ -3,5 +3,5 @@
 // ممنوع وضع service_role key في هذا الملف.
 window.VERA_CONFIG = {
   SUPABASE_URL: "https://ovzyukmifefunukogkxr.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY"
+  SUPABASE_ANON_KEY: "sb_publishable_SG2Kg553DhqlnoCVMUsDug_VDTqsZde"
 };
