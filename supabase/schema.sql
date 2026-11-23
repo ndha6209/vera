@@ -18,6 +18,7 @@ create table public.profiles (
 create table public.students (
   id uuid primary key default gen_random_uuid(),
   student_no text unique not null,
+  auth_user_id uuid unique references auth.users(id) on delete set null,
   full_name text not null,
   email text,
   phone text,
@@ -243,7 +244,7 @@ using (public.current_role()='admin') with check (public.current_role()='admin')
 create policy "staff manage students" on public.students for all to authenticated
 using (public.current_role() in ('admin','registrar')) with check (public.current_role() in ('admin','registrar'));
 create policy "student read own record" on public.students for select to authenticated
-using (exists(select 1 from public.profiles p where p.id=auth.uid() and lower(p.full_name)=lower(students.full_name)));
+using (auth_user_id=auth.uid());
 
 create policy "staff read teachers" on public.teachers for select to authenticated using(public.is_staff());
 create policy "admin registrar manage teachers" on public.teachers for all to authenticated
@@ -267,14 +268,14 @@ create policy "admin teacher manage questions" on public.questions for all to au
 using(public.current_role() in ('admin','teacher')) with check(public.current_role() in ('admin','teacher'));
 
 create policy "students own attempts and staff" on public.exam_attempts for select to authenticated
-using(public.current_role() in ('admin','teacher','registrar') or exists(select 1 from public.students s join public.profiles p on lower(p.full_name)=lower(s.full_name) where p.id=auth.uid() and s.id=student_id));
+using(public.current_role() in ('admin','teacher','registrar') or exists(select 1 from public.students s where s.auth_user_id=auth.uid() and s.id=student_id));
 create policy "students create own attempts" on public.exam_attempts for insert to authenticated
-with check(exists(select 1 from public.students s join public.profiles p on lower(p.full_name)=lower(s.full_name) where p.id=auth.uid() and s.id=student_id));
+with check(exists(select 1 from public.students s where s.auth_user_id=auth.uid() and s.id=student_id));
 create policy "students update own attempts" on public.exam_attempts for update to authenticated
 using(exists(select 1 from public.students s join public.profiles p on lower(p.full_name)=lower(s.full_name) where p.id=auth.uid() and s.id=student_id))
 with check(exists(select 1 from public.students s join public.profiles p on lower(p.full_name)=lower(s.full_name) where p.id=auth.uid() and s.id=student_id));
 create policy "answers own or staff" on public.exam_answers for all to authenticated
-using(public.current_role() in ('admin','teacher') or exists(select 1 from public.exam_attempts a join public.students s on s.id=a.student_id join public.profiles p on lower(p.full_name)=lower(s.full_name) where a.id=attempt_id and p.id=auth.uid()))
+using(public.current_role() in ('admin','teacher') or exists(select 1 from public.exam_attempts a join public.students s on s.id=a.student_id where a.id=attempt_id and s.auth_user_id=auth.uid()))
 with check(public.current_role() in ('admin','teacher') or exists(select 1 from public.exam_attempts a join public.students s on s.id=a.student_id join public.profiles p on lower(p.full_name)=lower(s.full_name) where a.id=attempt_id and p.id=auth.uid()));
 
 create policy "finance staff read invoices" on public.invoices for select to authenticated using(public.current_role() in ('admin','accountant','registrar'));
