@@ -215,7 +215,7 @@ begin
   if tg_op='DELETE' then return old; else return new; end if;
 end $;
 
-do $$
+do $
 declare t text;
 begin
   foreach t in array array['students','teachers','courses','enrollments','attendance','exams','questions','exam_attempts','exam_answers','invoices','payments','expenses','announcements'] loop
