@@ -99,9 +99,13 @@ create table public.questions (
   question_text text not null,
   question_type text not null default 'mcq' check(question_type in ('mcq','true_false','short')),
   options jsonb not null default '[]'::jsonb,
-  correct_answer text,
   marks numeric(8,2) not null default 1 check(marks > 0),
   sort_order integer not null default 0
+);
+
+create table public.exam_answer_keys (
+  question_id uuid primary key references public.questions(id) on delete cascade,
+  correct_answer text not null
 );
 
 create table public.exam_attempts (
@@ -208,8 +212,8 @@ begin
   rid := case when tg_op='DELETE' then old.id::text else new.id::text end;
   insert into public.audit_logs(actor_id, action, table_name, record_id)
   values(auth.uid(), tg_op, tg_table_name, rid);
-  return case when tg_op='DELETE' then old else new end;
-end $$;
+  if tg_op='DELETE' then return old; else return new; end if;
+end $;
 
 do $$
 declare t text;
@@ -228,6 +232,7 @@ alter table public.enrollments enable row level security;
 alter table public.attendance enable row level security;
 alter table public.exams enable row level security;
 alter table public.questions enable row level security;
+alter table public.exam_answer_keys enable row level security;
 alter table public.exam_attempts enable row level security;
 alter table public.exam_answers enable row level security;
 alter table public.invoices enable row level security;
@@ -264,6 +269,8 @@ create policy "admin teacher manage exams" on public.exams for all to authentica
 using(public.current_role() in ('admin','teacher')) with check(public.current_role() in ('admin','teacher'));
 create policy "read exam questions" on public.questions for select to authenticated
 using(exists(select 1 from public.exams e where e.id=exam_id and (e.is_published or public.current_role() in ('admin','teacher'))));
+create policy "teachers manage answer keys" on public.exam_answer_keys for all to authenticated
+using(public.current_role() in ('admin','teacher')) with check(public.current_role() in ('admin','teacher'));
 create policy "admin teacher manage questions" on public.questions for all to authenticated
 using(public.current_role() in ('admin','teacher')) with check(public.current_role() in ('admin','teacher'));
 
