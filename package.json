@@ -1,0 +1,21 @@
+{
+  "name": "vera",
+  "version": "1.0.0",
+  "description": "Vera Cloud - Educational Management Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Development server not configured'",
+    "build": "echo 'Build completed'",
+    "lint": "echo 'Linting not configured'"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.1.0"
+  },
+  "keywords": [
+    "education",
+    "management",
+    "supabase"
+  ],
+  "author": "",
+  "license": "ISC"
+}
