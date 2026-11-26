@@ -39,7 +39,7 @@
   <div class="profile" id="profileInfo"></div>
   <nav class="nav" id="nav">
    <button class="active" data-page="dashboard">⌂　الرئيسية</button>
-   <button data-page="my-results" data-roles="student">▤　نتائجي</button>
+   <button data-page="my-results" data-roles="student">▤　ملفي الأكاديمي</button>
    <button data-page="students" data-roles="admin,registrar">♙　الطلاب</button>
    <button data-page="teachers" data-roles="admin,registrar">♟　المدرسون</button>
    <button data-page="team" data-roles="admin,registrar">♙　فريق العمل</button>
@@ -86,7 +86,7 @@ const cfg=window.VERA_CONFIG||{};
 const configured=!!(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_URL.includes('YOUR-')&&!cfg.SUPABASE_ANON_KEY.includes('YOUR_'));
 const sb=configured?createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
 const $=id=>document.getElementById(id);
-const labels={about:'من نحن','my-results':'نتائجي',students:'الطلاب',teachers:'المدرسون',team:'فريق العمل',developers:'المبرمجون',courses:'الدورات',enrollments:'التسجيلات',attendance:'الحضور والغياب',exams:'الاختبارات',invoices:'الفواتير',payments:'المدفوعات',expenses:'المصروفات',announcements:'الإعلانات',users:'المستخدمون والصلاحيات',audit:'سجل العمليات',resources:'مكتبة الملفات'};
+const labels={about:'من نحن','my-results':'ملفي الأكاديمي',students:'الطلاب',teachers:'المدرسون',team:'فريق العمل',developers:'المبرمجون',courses:'الدورات',enrollments:'التسجيلات',attendance:'الحضور والغياب',exams:'الاختبارات',invoices:'الفواتير',payments:'المدفوعات',expenses:'المصروفات',announcements:'الإعلانات',users:'المستخدمون والصلاحيات',audit:'سجل العمليات',resources:'مكتبة الملفات'};
 const specs={
  students:{table:'students',fields:[['student_no','الرقم الأكاديمي','text',true],['auth_user_id','ربط حساب الطالب UUID (اختياري)','text'],['full_name','اسم الطالب','text',true],['email','البريد الإلكتروني','email'],['phone','الهاتف','text'],['birth_date','تاريخ الميلاد','date'],['gender','الجنس','text'],['address','العنوان','text'],['status','الحالة','select',['active','inactive','suspended','completed']]],cols:['student_no','full_name','phone','status']},
  teachers:{table:'teachers',fields:[['full_name','اسم المدرس','text',true],['email','البريد الإلكتروني','email'],['phone','الهاتف','text'],['specialty','التخصص','text'],['bio','نبذة تعريفية','textarea'],['photo_url','رابط الصورة الشخصية','url'],['hourly_rate','أجر الساعة','number'],['status','الحالة','select',['active','inactive','suspended']]],cols:['full_name','specialty','phone','photo_url','status']},
@@ -173,21 +173,31 @@ async function loadReferenceOptions(page){
  return true;
 }
 async function loadStudentResults(){
- $('tableTitle').textContent='نتائجي الأكاديمية';
+ $('tableTitle').textContent='ملفي الأكاديمي';
  $('addBtn').classList.add('hidden');$('searchInput').classList.add('hidden');
  $('tableArea').innerHTML='<div class="empty">جارٍ تحميل ملفك الأكاديمي...</div>';
- const {data:student,error:studentError}=await sb.from('students').select('id,student_no,full_name,email').eq('auth_user_id',user.id).maybeSingle();
+ const {data:student,error:studentError}=await sb.from('students').select('id,student_no,full_name,email,phone,birth_date,gender,address,status').eq('auth_user_id',user.id).maybeSingle();
  if(studentError){$('tableArea').innerHTML='<div class="notice">تعذر التحقق من ملفك الأكاديمي: '+esc(studentError.message)+'</div>';return}
  if(!student){
   $('recordCount').textContent='ربط الحساب بالرقم الأكاديمي';
   $('tableArea').innerHTML='<div class="card" style="max-width:620px;margin:10px auto;padding:22px"><div style="font-size:30px;color:var(--gold);text-align:center">▤</div><h2 style="text-align:center">اربط حسابك بملفك الأكاديمي</h2><p class="muted" style="line-height:2;text-align:center">أدخل رقمك الأكاديمي المسجل لدى شؤون الطلاب. سنطابقه مع البريد الإلكتروني المضاف في سجلك، ولن يتم الربط إلا إذا تطابق البريد مع بريد حسابك المسجل.</p><label for="academicNumber">الرقم الأكاديمي</label><input id="academicNumber" class="field" inputmode="text" autocomplete="off" placeholder="أدخل الرقم الأكاديمي المسجل لديك"><button id="linkAcademicBtn" class="primary" style="width:100%">تحقق وربط الحساب</button><p class="muted" style="font-size:12px;line-height:1.8;margin:14px 0 0">إذا لم يكن بريدك الإلكتروني مسجلًا لدى شؤون الطلاب أو كان مختلفًا عن بريد الدخول، اطلب من الإدارة تحديث بياناتك أولًا.</p></div>';
   return;
  }
- const {data,error}=await sb.from('enrollments').select('id,final_grade,final_grade_published,status,enrolled_at,courses(title,code)').eq('student_id',student.id).eq('final_grade_published',true).order('enrolled_at',{ascending:false});
- if(error){$('tableArea').innerHTML='<div class="notice">تم التعرف على ملفك، لكن تعذر تحميل النتائج: '+esc(error.message)+'</div>';return}
- const list=data||[];
- $('recordCount').textContent='الرقم الأكاديمي: '+student.student_no+' · '+list.length+' نتيجة معتمدة';
- $('tableArea').innerHTML='<div class="card" style="margin-bottom:14px"><small>الملف الأكاديمي</small><div style="font-size:19px;font-weight:800;margin:6px 0">'+esc(student.full_name)+'</div><small>الرقم الأكاديمي: '+esc(student.student_no)+'</small><div class="muted" style="font-size:12px;margin-top:6px">الحساب مرتبط بنجاح بالملف الأكاديمي</div></div>'+(list.length?'<div class="tablewrap"><table><thead><tr><th>المقرر</th><th>رمز المقرر</th><th>الدرجة النهائية</th><th>الحالة</th></tr></thead><tbody>'+list.map(r=>'<tr><td>'+esc(r.courses?.title||'مقرر')+'</td><td>'+esc(r.courses?.code||'—')+'</td><td style="font-weight:800;color:var(--green)">'+esc(r.final_grade??'لم ترصد')+'</td><td><span class="badge">معتمدة ومنشورة</span></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">لا توجد نتائج معتمدة منشورة حتى الآن.</div>');
+ const resultsReq=sb.from('enrollments').select('id,final_grade,final_grade_published,status,enrolled_at,courses(title,code)').eq('student_id',student.id).eq('final_grade_published',true).order('enrolled_at',{ascending:false});
+ const attendanceReq=sb.from('attendance').select('session_date,status,notes,enrollments(courses(title,code))').order('session_date',{ascending:false}).limit(100);
+ const examsReq=sb.from('exam_attempts').select('id,score,status,started_at,submitted_at,exams(title,starts_at,total_marks,courses(title,code))').eq('student_id',student.id).order('started_at',{ascending:false}).limit(100);
+ const [gradesRes,attendanceRes,examsRes]=await Promise.all([resultsReq,attendanceReq,examsReq]);
+ if(gradesRes.error){$('tableArea').innerHTML='<div class="notice">تعذر تحميل النتائج: '+esc(gradesRes.error.message)+'</div>';return}
+ const grades=gradesRes.data||[],attendance=attendanceRes.error?[]:(attendanceRes.data||[]),attempts=examsRes.error?[]:(examsRes.data||[]);
+ const present=attendance.filter(x=>x.status==='present').length,absent=attendance.filter(x=>x.status==='absent').length,late=attendance.filter(x=>x.status==='late').length,excused=attendance.filter(x=>x.status==='excused').length;
+ const info=[['البريد الإلكتروني',student.email],['رقم الهاتف',student.phone],['تاريخ الميلاد',student.birth_date],['الجنس',student.gender],['العنوان',student.address],['الحالة',displayValue(student.status)]].filter(x=>x[1]);
+ const profileCard='<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="width:58px;height:58px;border-radius:18px;background:#1b4932;display:grid;place-items:center;color:var(--gold);font-size:27px">♙</div><div style="flex:1"><small>الملف الأكاديمي للطالب</small><div style="font-size:21px;font-weight:850;margin:5px 0">'+esc(student.full_name)+'</div><span class="badge">مرتبط بنجاح</span></div><div style="text-align:left"><small>الرقم الأكاديمي</small><div style="font-size:19px;color:var(--gold);font-weight:850">'+esc(student.student_no)+'</div></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:18px">'+info.map(x=>'<div style="background:#07170f99;border:1px solid var(--line);border-radius:12px;padding:11px"><small class="muted">'+esc(x[0])+'</small><div style="margin-top:5px;font-size:13px">'+esc(x[1])+'</div></div>').join('')+'</div></div>';
+ const stats='<div class="cards" style="margin:0 0 14px"><div class="card"><small>النتائج المنشورة</small><div class="number">'+grades.length+'</div></div><div class="card"><small>مرات الحضور</small><div class="number">'+(attendanceRes.error?'—':present)+'</div></div><div class="card"><small>مرات الغياب</small><div class="number">'+(attendanceRes.error?'—':absent)+'</div></div><div class="card"><small>سجل الاختبارات</small><div class="number">'+(examsRes.error?'—':attempts.length)+'</div></div></div>';
+ const gradesHtml='<div class="panel" style="margin-bottom:14px"><h2>النتائج الأكاديمية المعتمدة</h2>'+(grades.length?'<div class="tablewrap"><table><thead><tr><th>المقرر</th><th>رمز المقرر</th><th>الدرجة النهائية</th><th>حالة التسجيل</th></tr></thead><tbody>'+grades.map(r=>'<tr><td>'+esc(r.courses?.title||'مقرر')+'</td><td>'+esc(r.courses?.code||'—')+'</td><td style="font-weight:800;color:var(--green)">'+esc(r.final_grade??'لم ترصد')+'</td><td>'+esc(displayValue(r.status))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">لا توجد نتائج معتمدة منشورة حتى الآن.</div>')+'</div>';
+ const attendanceHtml='<div class="panel" style="margin-bottom:14px"><h2>سجل الحضور والغياب</h2>'+(attendanceRes.error?'<div class="notice">سجل الحضور غير متاح حاليًا. '+esc(attendanceRes.error.message)+'<br>تأكد من تنفيذ ملف student_academic_profile_migration.sql.</div>':attendance.length?'<div class="muted" style="font-size:12px;margin-bottom:10px">حاضر: '+present+' · غائب: '+absent+' · متأخر: '+late+' · بعذر: '+excused+'</div><div class="tablewrap"><table><thead><tr><th>التاريخ</th><th>المقرر</th><th>الحالة</th><th>ملاحظات</th></tr></thead><tbody>'+attendance.map(a=>'<tr><td>'+esc(a.session_date)+'</td><td>'+esc(a.enrollments?.courses?.title||'—')+'</td><td>'+esc(displayValue(a.status))+'</td><td>'+esc(a.notes||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">لا توجد حركات حضور مسجلة حتى الآن.</div>')+'</div>';
+ const examsHtml='<div class="panel"><h2>سجل الاختبارات</h2>'+(examsRes.error?'<div class="notice">تعذر تحميل سجل الاختبارات: '+esc(examsRes.error.message)+'</div>':attempts.length?'<div class="tablewrap"><table><thead><tr><th>الاختبار</th><th>المقرر</th><th>موعد البدء</th><th>الدرجة</th><th>الحالة</th></tr></thead><tbody>'+attempts.map(a=>'<tr><td>'+esc(a.exams?.title||'اختبار')+'</td><td>'+esc(a.exams?.courses?.title||'—')+'</td><td>'+esc(dateVal(a.started_at))+'</td><td>'+esc(a.score??'لم تصحح')+' / '+esc(a.exams?.total_marks??'—')+'</td><td>'+esc(({in_progress:'قيد التنفيذ',submitted:'تم التسليم',graded:'تم التصحيح'})[a.status]||a.status)+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">لا يوجد سجل اختبارات لهذا الحساب حتى الآن.</div>')+'</div>';
+ $('recordCount').textContent='الرقم الأكاديمي: '+student.student_no+' · الملف الأكاديمي';
+ $('tableArea').innerHTML=profileCard+stats+gradesHtml+attendanceHtml+examsHtml;
 }
 $('tableArea').addEventListener('click',async e=>{
  const btn=e.target.closest('#linkAcademicBtn');if(!btn)return;
