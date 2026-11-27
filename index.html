@@ -242,7 +242,19 @@ $('authForm').onsubmit=async e=>{
   submit.disabled=false;submit.textContent=previousText;
  }
 };
-$('logoutBtn').onclick=async()=>{await sb.auth.signOut()};
+$('logoutBtn').onclick=async()=>{
+ const b=$('logoutBtn'),old=b.textContent;
+ b.disabled=true;b.textContent='جارٍ تسجيل الخروج...';
+ try{
+  const {error}=await sb.auth.signOut();
+  if(error)throw error;
+  user=null;profile=null;role=null;requestedRole=null;
+  showPublic();
+  toast('تم تسجيل الخروج بنجاح.');
+ }catch(err){
+  toast('تعذر تسجيل الخروج: '+(err?.message||'حاول مرة أخرى.'),true);
+ }finally{b.disabled=false;b.textContent=old}
+};
 $('nav').onclick=e=>{const b=e.target.closest('button[data-page]');if(!b)return;openPage(b.dataset.page)};
 $('openPublicAdminBtn').onclick=()=>{if(role!=='admin'){toast('هذه الصفحة مخصصة للمدير العام فقط',true);return}openPage('public-content')};
 $('aboutPage').onclick=e=>{const b=e.target.closest('[data-about-page]');if(!b)return;let p=b.dataset.aboutPage;if(role==='student'&&p==='students')p='my-results';if(role==='student'&&p==='teachers')p='courses';if(role==='teacher'&&p==='students')p='my-results';openPage(p)};
@@ -490,7 +502,13 @@ async function loadLiveClasses(){
  $('tableArea').innerHTML=form+'<div class="tabletools" style="margin-top:18px"><b>المحاضرات المجدولة</b><span class="muted">'+(data||[]).length+' محاضرة</span></div><div class="live-grid">'+(cards||'<div class="empty">لا توجد محاضرات حتى الآن. يمكنك جدولة أول محاضرة من النموذج أعلاه.</div>')+'</div><div id="liveRoomArea"></div>';
  const formEl=$('liveCreateForm');
  if(formEl)formEl.onsubmit=async e=>{e.preventDefault();const fd=new FormData(formEl);const payload={title:String(fd.get('title')).trim(),course_id:fd.get('course_id'),scheduled_at:new Date(fd.get('scheduled_at')).toISOString(),duration_minutes:Number(fd.get('duration_minutes')),description:String(fd.get('description')||'').trim()||null,created_by:user.id};const {error}=await sb.from('live_classes').insert(payload);if(error){toast('تعذر إنشاء المحاضرة: '+error.message,true);return}toast('تمت جدولة المحاضرة بنجاح');await loadLiveClasses()};
- $('tableArea').querySelectorAll('[data-live-open]').forEach(b=>b.onclick=()=>openLiveRoom(b.dataset.liveOpen));
+ $('tableArea').querySelectorAll('[data-live-open]').forEach(b=>b.onclick=async()=>{
+ const id=b.dataset.liveOpen,old=b.textContent;
+ b.disabled=true;b.textContent='جارٍ فتح الفصل...';
+ try{await openLiveRoom(id)}
+ catch(err){toast('تعذر فتح الفصل: '+(err?.message||'خطأ غير معروف'),true)}
+ finally{b.disabled=false;b.textContent=old}
+});
  $('tableArea').querySelectorAll('[data-live-status]').forEach(b=>b.onclick=async()=>{const {error}=await sb.from('live_classes').update({status:b.dataset.status}).eq('id',b.dataset.liveStatus);if(error){toast(error.message,true);return}toast(b.dataset.status==='live'?'تم بدء المحاضرة':'تم إنهاء المحاضرة');loadLiveClasses()});
 }
 async function openLiveRoom(id){
