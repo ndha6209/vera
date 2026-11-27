@@ -179,7 +179,34 @@ async function boot(){
   showPublic();
  }
 }
-async function loadProfile(u){user=u;const {data,error}=await sb.from('profiles').select('*').eq('id',u.id).single();if(error){toast('تعذر تحميل ملف المستخدم: '+error.message,true);return}profile=data;role=data.role;if(!data.is_active){await sb.auth.signOut();toast('هذا الحساب موقوف',true);return}if(requestedRole&&requestedRole!==role){const expected=roleLabel(requestedRole),actual=roleLabel(role);requestedRole=null;await sb.auth.signOut();toast('نوع الحساب المختار ('+expected+') لا يطابق صلاحية هذا البريد ('+actual+'). اختر النوع الصحيح.',true);return}requestedRole=null;showApp()}
+async function loadProfile(u){
+ user=u;
+ try{
+  const {data,error}=await sb.from('profiles').select('id,full_name,role,is_active').eq('id',u.id).maybeSingle();
+  if(error)throw error;
+  if(!data){
+   $('setupAlert').textContent='تم تسجيل الدخول بنجاح، لكن لا يوجد ملف مستخدم مرتبط بهذا الحساب في جدول profiles. تواصل مع المدير العام لإنشاء ملف الحساب.';
+   $('loginView').classList.remove('hidden');$('appView').classList.add('hidden');
+   toast('الحساب موجود في المصادقة لكن ملفه غير موجود في profiles.',true);
+   return;
+  }
+  profile=data;role=data.role;
+  if(data.is_active===false){
+   await sb.auth.signOut();
+   toast('هذا الحساب موقوف. راجع المدير العام.',true);return;
+  }
+  if(requestedRole&&requestedRole!==role){
+   const expected=roleLabel(requestedRole),actual=roleLabel(role);requestedRole=null;
+   await sb.auth.signOut();
+   toast('نوع الحساب المختار ('+expected+') لا يطابق صلاحية هذا البريد ('+actual+'). اختر النوع الصحيح.',true);return;
+  }
+  requestedRole=null;showApp();
+ }catch(err){
+  $('setupAlert').textContent='تم التحقق من البريد وكلمة المرور، لكن تعذر تحميل ملف الحساب: '+(err?.message||'خطأ غير معروف')+'. تحقق من صلاحيات قراءة جدول profiles وسياسة RLS.';
+  $('loginView').classList.remove('hidden');$('appView').classList.add('hidden');
+  toast('تعذر تحميل ملف الحساب: '+(err?.message||'خطأ غير معروف'),true);
+ }
+}
 $('backPublicBtn').onclick=showPublic;document.querySelectorAll('[data-open-auth]').forEach(b=>b.addEventListener('click',()=>{showLogin();$('email').focus()}));
 async function loadPublicContent(){if(!sb)return;const {data,error}=await sb.from('public_site_content').select('id,content_type,title,body,image_url,media_url,action_label,action_url,sort_order').eq('is_active',true).order('sort_order').limit(60);if(error){console.warn('Public content:',error.message);return}const items=data||[];const card=x=>'<article class="public-card">'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="'+esc(x.title)+'" loading="lazy">':'')+'<div class="public-card-content"><h3>'+esc(x.title)+'</h3><p>'+esc(x.body||'')+'</p>'+(x.media_url?'<a href="'+esc(x.media_url)+'" target="_blank" rel="noopener">▶ مشاهدة المحتوى</a>':'')+(x.action_url?'<a href="'+esc(x.action_url)+'" target="_blank" rel="noopener">'+esc(x.action_label||'التفاصيل')+'</a>':(x.action_label?'<button type="button" data-open-auth>'+esc(x.action_label)+'</button>':''))+'</div></article>';const courses=items.filter(x=>x.content_type==='course'||x.content_type==='notice');const videos=items.filter(x=>x.content_type==='video');$('publicCourseCards').innerHTML=courses.length?courses.map(card).join(''):'<div class="public-empty">لا توجد دورات منشورة حاليًا. تابعنا لمعرفة الدورات القادمة.</div>';$('publicVideoCards').innerHTML=videos.length?videos.map(card).join(''):'<div class="public-empty">ستظهر المحاضرات والفيديوهات التي تضيفها الإدارة هنا.</div>';document.querySelectorAll('#publicView [data-open-auth]').forEach(b=>b.addEventListener('click',()=>{showLogin();$('email').focus()}));}
 $('toggleSignup').onclick=()=>{signup=!signup;$('fullName').classList.toggle('hidden',!signup);$('nameLabel').classList.toggle('hidden',!signup);$('loginRole').classList.toggle('hidden',signup);$('roleLabel').classList.toggle('hidden',signup);$('authSubmit').textContent=signup?'إنشاء الحساب':'تسجيل الدخول';$('toggleSignup').textContent=signup?'لدي حساب':'إنشاء حساب';if(signup)toast('الحسابات الجديدة تُنشأ بصلاحية طالب، ويحدد المدير صلاحيات الموظفين من لوحة المستخدمين.')};
@@ -203,7 +230,11 @@ $('authForm').onsubmit=async e=>{
   if(res.error){requestedRole=null;toast('تعذر تسجيل الدخول: '+res.error.message,true);return}
   if(signup&&!res.data.session)toast('تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتفعيل الحساب.');
   else if(signup)toast('تم إنشاء الحساب.');
-  else toast('تم التحقق من بيانات الدخول، جارٍ فتح حسابك...');
+  else {
+   toast('تم التحقق من بيانات الدخول. جارٍ تحميل ملف الحساب...');
+   if(res.data?.user)await loadProfile(res.data.user);
+   else toast('تم الدخول لكن لم تُرجع خدمة المصادقة بيانات المستخدم.',true);
+  }
  }catch(err){
   requestedRole=null;
   toast('تعذر الاتصال بخدمة الدخول: '+(err?.message||'تحقق من الإنترنت وحاول مجدداً.'),true);
