@@ -1,7 +1,7 @@
 -- VERA CLOUD — Supabase PostgreSQL schema
 create extension if not exists pgcrypto;
 
-create type public.app_role as enum ('admin','registrar','teacher','student','accountant');
+create type public.app_role as enum ('admin','developer','manager','registrar','teacher','student','accountant');
 create type public.record_status as enum ('active','inactive','suspended','completed');
 create type public.payment_status as enum ('unpaid','partial','paid','cancelled');
 
