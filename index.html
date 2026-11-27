@@ -481,8 +481,7 @@ $('tableArea').addEventListener('click',async e=>{
  if(!confirm((next?'إعادة تفعيل':'إيقاف')+' حساب '+(target.full_name||'هذا المستخدم')+'؟'))return;
  await saveManagedProfile(target.id,target.role,next);
 });
-async 
-let liveChatChannel=null,activeLiveClass=null,liveCameraStream=null;
+var liveChatChannel=null,activeLiveClass=null,liveCameraStream=null;
 async function loadLiveClasses(){
  $('tableTitle').textContent='المحاضرات المباشرة والفصول الافتراضية';
  $('addBtn').classList.add('hidden');$('searchInput').classList.add('hidden');
