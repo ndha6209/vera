@@ -164,7 +164,34 @@ async function loadProfile(u){user=u;const {data,error}=await sb.from('profiles'
 $('backPublicBtn').onclick=showPublic;document.querySelectorAll('[data-open-auth]').forEach(b=>b.addEventListener('click',()=>{showLogin();$('email').focus()}));
 async function loadPublicContent(){if(!sb)return;const {data,error}=await sb.from('public_site_content').select('id,content_type,title,body,image_url,media_url,action_label,action_url,sort_order').eq('is_active',true).order('sort_order').limit(60);if(error){console.warn('Public content:',error.message);return}const items=data||[];const card=x=>'<article class="public-card">'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="'+esc(x.title)+'" loading="lazy">':'')+'<div class="public-card-content"><h3>'+esc(x.title)+'</h3><p>'+esc(x.body||'')+'</p>'+(x.media_url?'<a href="'+esc(x.media_url)+'" target="_blank" rel="noopener">▶ مشاهدة المحتوى</a>':'')+(x.action_url?'<a href="'+esc(x.action_url)+'" target="_blank" rel="noopener">'+esc(x.action_label||'التفاصيل')+'</a>':(x.action_label?'<button type="button" data-open-auth>'+esc(x.action_label)+'</button>':''))+'</div></article>';const courses=items.filter(x=>x.content_type==='course'||x.content_type==='notice');const videos=items.filter(x=>x.content_type==='video');$('publicCourseCards').innerHTML=courses.length?courses.map(card).join(''):'<div class="public-empty">لا توجد دورات منشورة حاليًا. تابعنا لمعرفة الدورات القادمة.</div>';$('publicVideoCards').innerHTML=videos.length?videos.map(card).join(''):'<div class="public-empty">ستظهر المحاضرات والفيديوهات التي تضيفها الإدارة هنا.</div>';document.querySelectorAll('#publicView [data-open-auth]').forEach(b=>b.addEventListener('click',()=>{showLogin();$('email').focus()}));}
 $('toggleSignup').onclick=()=>{signup=!signup;$('fullName').classList.toggle('hidden',!signup);$('nameLabel').classList.toggle('hidden',!signup);$('loginRole').classList.toggle('hidden',signup);$('roleLabel').classList.toggle('hidden',signup);$('authSubmit').textContent=signup?'إنشاء الحساب':'تسجيل الدخول';$('toggleSignup').textContent=signup?'لدي حساب':'إنشاء حساب';if(signup)toast('الحسابات الجديدة تُنشأ بصلاحية طالب، ويحدد المدير صلاحيات الموظفين من لوحة المستخدمين.')};
-$('authForm').onsubmit=async e=>{e.preventDefault();if(!sb)return;const email=$('email').value.trim(),password=$('password').value;let res;if(signup){requestedRole=null;res=await sb.auth.signUp({email,password,options:{data:{full_name:$('fullName').value.trim()}}})}else{requestedRole=$('loginRole').value;res=await sb.auth.signInWithPassword({email,password})}if(res.error){requestedRole=null;toast(res.error.message,true);return}if(signup&&!res.data.session)toast('تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتفعيل الحساب.');else if(signup)toast('تم إنشاء الحساب');};
+$('authForm').onsubmit=async e=>{
+ e.preventDefault();
+ const submit=$('authSubmit');
+ if(!sb){toast('الاتصال بالخدمة غير مهيأ. تحقق من ملف config.js.',true);return}
+ const email=$('email').value.trim(),password=$('password').value;
+ if(!email||!password){toast('أدخل البريد الإلكتروني وكلمة المرور أولاً.',true);return}
+ const previousText=submit.textContent;
+ submit.disabled=true;submit.textContent='جارٍ الاتصال...';
+ try{
+  let res;
+  if(signup){
+   requestedRole=null;
+   res=await sb.auth.signUp({email,password,options:{data:{full_name:$('fullName').value.trim()}}});
+  }else{
+   requestedRole=$('loginRole').value;
+   res=await sb.auth.signInWithPassword({email,password});
+  }
+  if(res.error){requestedRole=null;toast('تعذر تسجيل الدخول: '+res.error.message,true);return}
+  if(signup&&!res.data.session)toast('تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتفعيل الحساب.');
+  else if(signup)toast('تم إنشاء الحساب.');
+  else toast('تم التحقق من بيانات الدخول، جارٍ فتح حسابك...');
+ }catch(err){
+  requestedRole=null;
+  toast('تعذر الاتصال بخدمة الدخول: '+(err?.message||'تحقق من الإنترنت وحاول مجدداً.'),true);
+ }finally{
+  submit.disabled=false;submit.textContent=previousText;
+ }
+};
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut()};
 $('nav').onclick=e=>{const b=e.target.closest('button[data-page]');if(!b)return;openPage(b.dataset.page)};
 $('openPublicAdminBtn').onclick=()=>{if(role!=='admin'){toast('هذه الصفحة مخصصة للمدير العام فقط',true);return}openPage('public-content')};
