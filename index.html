@@ -435,7 +435,7 @@ async function openLiveRoom(id){
  $('liveChatForm').onsubmit=async e=>{e.preventDefault();const input=e.target.elements.message;const message=input.value.trim();if(!message)return;const {error}=await sb.from('live_class_messages').insert({session_id:id,sender_id:user.id,message});if(error){toast(error.message,true);return}input.value='';await refreshLiveChat()};
  liveChatChannel=sb.channel('live-class-chat-'+id).on('postgres_changes',{event:'INSERT',schema:'public',table:'live_class_messages',filter:'session_id=eq.'+id},()=>refreshLiveChat()).subscribe();
 }
-function loadAudit(){
+async function loadAudit(){
  $('tableTitle').textContent='سجل العمليات والتغييرات';
  $('tableArea').innerHTML='<div class="empty">جارٍ تحميل سجل النشاطات...</div>';
  const {data,error}=await sb.from('audit_logs').select('id,actor_id,action,table_name,record_id,details,created_at').order('created_at',{ascending:false}).limit(500);
