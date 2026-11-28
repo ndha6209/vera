@@ -52,6 +52,12 @@
 }
 @media(max-width:420px){.top-heading{gap:8px}.menu-toggle{min-width:42px;height:42px}.top-heading h1{font-size:18px}}
 @media(prefers-reduced-motion:reduce){.side{transition:none}}
+
+/* VERA dashboard brand spotlight */
+.dashboard-brand-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:205px;margin:4px 0 22px;padding:28px clamp(20px,4vw,42px);border:1px solid #927d49;border-radius:24px;background:radial-gradient(circle at 18% 50%,#d7b76a20,transparent 30%),radial-gradient(circle at 88% 20%,#50d29325,transparent 32%),linear-gradient(115deg,#173d2a,#0a1b13 75%);box-shadow:0 18px 48px #0005}
+.dashboard-brand-copy{position:relative;z-index:2}.dashboard-brand-kicker{color:#e7c77c;font-size:11px;font-weight:900;letter-spacing:3px}.dashboard-brand-copy h2{font-size:clamp(23px,3vw,34px);margin:10px 0;color:#f4ead0}.dashboard-brand-copy h2 strong{color:#70dfa5;white-space:nowrap}.dashboard-brand-copy p{margin:0;color:#c4d8ca;line-height:1.9;font-size:14px}
+.dashboard-brand-mark{position:relative;z-index:2;flex:0 0 clamp(112px,17vw,158px);width:clamp(112px,17vw,158px);aspect-ratio:1;display:grid;place-items:center;border:1px solid #e7c77c;border-radius:30px;background:linear-gradient(145deg,#fff,#e9eadf);box-shadow:0 12px 38px #0007,0 0 0 8px #e7c77c14;padding:12px;transform:rotate(-3deg)}.dashboard-brand-mark img{width:100%;height:100%;object-fit:contain;border-radius:18px}.dashboard-brand-orbit{position:absolute;z-index:1;border:1px solid #e7c77c30;border-radius:50%;pointer-events:none}.dashboard-orbit-one{width:300px;height:300px;left:-90px;top:-130px}.dashboard-orbit-two{width:430px;height:430px;left:-155px;top:-195px}
+@media(max-width:600px){.dashboard-brand-hero{min-height:160px;padding:20px 16px;gap:12px;border-radius:19px}.dashboard-brand-copy h2{font-size:20px;line-height:1.5}.dashboard-brand-copy p{font-size:12px}.dashboard-brand-kicker{font-size:9px;letter-spacing:1.5px}.dashboard-brand-mark{flex-basis:94px;width:94px;border-radius:22px;padding:8px}.dashboard-brand-orbit{opacity:.6}}
 </style>
 </head>
 <body>
@@ -121,6 +127,11 @@
  <main class="main">
   <header class="top"><div class="top-heading"><button type="button" class="menu-toggle" id="navToggle" aria-label="فتح القائمة" aria-expanded="false">☰</button><div><div class="muted">نظام إدارة المؤسسات التعليمية والتدريبية</div><h1 id="heading">لوحة التحكم</h1></div></div><div class="actions"><span class="badge" id="cloudStatus">● متصل بالسحابة</span><button id="refreshBtn">تحديث</button><button id="logoutBtn">تسجيل الخروج</button></div></header>
   <section id="dashboardPage">
+   <div class="dashboard-brand-hero">
+    <div class="dashboard-brand-copy"><span class="dashboard-brand-kicker">CLOUD EDUCATION SUITE</span><h2>مرحبًا بك في <strong>VERA CLOUD</strong></h2><p>منصتك التعليمية السحابية المتكاملة للتعلّم والإدارة والإنجاز.</p></div>
+    <div class="dashboard-brand-mark"><img src="IMG-20261121-WA0003.jpg" alt="شعار منصة VERA CLOUD"></div>
+    <span class="dashboard-brand-orbit dashboard-orbit-one"></span><span class="dashboard-brand-orbit dashboard-orbit-two"></span>
+   </div>
    <div class="cards">
     <div class="card"><small>الطلاب</small><div class="number" id="countStudents">—</div></div>
     <div class="card"><small>المدرسون</small><div class="number" id="countTeachers">—</div></div>
