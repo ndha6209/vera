@@ -38,7 +38,8 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const accessToken = authorization.slice("Bearer ".length).trim();
+    const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
     const authUser = authData?.user;
     if (authError || !authUser) return json({ error: "جلسة الدخول غير صالحة. سجّل الدخول مجدداً." }, 401);
 
