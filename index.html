@@ -38,6 +38,20 @@
 .live-msg{padding:9px 11px;border-radius:12px;background:#173525;max-width:95%;font-size:13px;line-height:1.7}.live-msg small{display:block;color:var(--muted);font-size:10px}
 .live-input{display:flex;gap:7px;margin-top:9px}.live-input input{flex:1;min-width:0}
 @media(max-width:800px){.live-grid,.live-room{grid-template-columns:1fr}}
+
+/* Mobile navigation drawer */
+.top-heading{display:flex;align-items:center;gap:12px}.menu-toggle{display:none;min-width:44px;height:44px;align-items:center;justify-content:center;font-size:21px;border-color:#3d7052;background:#143523;color:var(--green)}
+.nav-backdrop{display:none}
+@media(max-width:850px){
+ .app{display:block;min-height:100vh}
+ .side{position:fixed;z-index:60;top:0;right:0;bottom:0;width:min(310px,86vw);height:100dvh;overflow-y:auto;padding:18px;background:#091a12;border-left:1px solid var(--line);box-shadow:-18px 0 55px #0008;transform:translateX(110%);transition:transform .28s ease}
+ .app.nav-open .side{transform:translateX(0)}
+ .app.nav-open .nav-backdrop{display:block;position:fixed;z-index:55;inset:0;width:100%;height:100%;border:0;border-radius:0;background:#0009;backdrop-filter:blur(2px)}
+ .brand{padding-bottom:18px}.brand img{width:52px;height:52px}.nav{display:grid;gap:7px;overflow:visible;padding:0}.nav button{width:100%;text-align:right;padding:12px 14px;white-space:normal}.sidefoot{display:block}
+ .main{padding:15px}.menu-toggle{display:inline-flex}.top{align-items:center}.top-heading{min-width:0}.top-heading h1{font-size:20px}
+}
+@media(max-width:420px){.top-heading{gap:8px}.menu-toggle{min-width:42px;height:42px}.top-heading h1{font-size:18px}}
+@media(prefers-reduced-motion:reduce){.side{transition:none}}
 </style>
 </head>
 <body>
@@ -103,8 +117,9 @@
   </nav>
   <div class="sidefoot">Vera Cloud · بيئة متعددة المستخدمين<br>البيانات محفوظة في قاعدة سحابية</div>
  </aside>
+ <button type="button" class="nav-backdrop" id="navBackdrop" aria-label="إغلاق القائمة"></button>
  <main class="main">
-  <header class="top"><div><div class="muted">نظام إدارة المؤسسات التعليمية والتدريبية</div><h1 id="heading">لوحة التحكم</h1></div><div class="actions"><span class="badge" id="cloudStatus">● متصل بالسحابة</span><button id="refreshBtn">تحديث</button><button id="logoutBtn">تسجيل الخروج</button></div></header>
+  <header class="top"><div class="top-heading"><button type="button" class="menu-toggle" id="navToggle" aria-label="فتح القائمة" aria-expanded="false">☰</button><div><div class="muted">نظام إدارة المؤسسات التعليمية والتدريبية</div><h1 id="heading">لوحة التحكم</h1></div></div><div class="actions"><span class="badge" id="cloudStatus">● متصل بالسحابة</span><button id="refreshBtn">تحديث</button><button id="logoutBtn">تسجيل الخروج</button></div></header>
   <section id="dashboardPage">
    <div class="cards">
     <div class="card"><small>الطلاب</small><div class="number" id="countStudents">—</div></div>
@@ -256,7 +271,11 @@ $('logoutBtn').onclick=async()=>{
   toast('تعذر تسجيل الخروج: '+(err?.message||'حاول مرة أخرى.'),true);
  }finally{b.disabled=false;b.textContent=old}
 };
-$('nav').onclick=e=>{const b=e.target.closest('button[data-page]');if(!b)return;openPage(b.dataset.page)};
+const closeMobileNav=()=>{if(window.matchMedia('(max-width: 850px)').matches){$('appView').classList.remove('nav-open');$('navToggle').setAttribute('aria-expanded','false');$('navToggle').setAttribute('aria-label','فتح القائمة')}};
+$('navToggle').onclick=()=>{const opened=$('appView').classList.toggle('nav-open');$('navToggle').setAttribute('aria-expanded',String(opened));$('navToggle').setAttribute('aria-label',opened?'إغلاق القائمة':'فتح القائمة')};
+$('navBackdrop').onclick=closeMobileNav;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileNav()});
+$('nav').onclick=e=>{const b=e.target.closest('button[data-page]');if(!b)return;openPage(b.dataset.page);closeMobileNav()};
 $('openPublicAdminBtn').onclick=()=>{if(role!=='admin'){toast('هذه الصفحة مخصصة للمدير العام فقط',true);return}openPage('public-content')};
 $('aboutPage').onclick=e=>{const b=e.target.closest('[data-about-page]');if(!b)return;let p=b.dataset.aboutPage;if(role==='student'&&p==='students')p='my-results';if(role==='student'&&p==='teachers')p='courses';if(role==='teacher'&&p==='students')p='my-results';openPage(p)};
 $('refreshBtn').onclick=()=>currentPage==='dashboard'?loadDashboard():currentPage==='about'?toast('صفحة التعريف محدثة'):loadTable();
