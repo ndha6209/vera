@@ -139,6 +139,7 @@
  <main class="main">
   <header class="top"><div class="top-heading"><button type="button" class="menu-toggle" id="navToggle" aria-label="فتح القائمة" aria-expanded="false">☰</button><div><div class="muted">نظام إدارة المؤسسات التعليمية والتدريبية</div><h1 id="heading">لوحة التحكم</h1></div></div><div class="actions"><span class="badge" id="cloudStatus">● متصل بالسحابة</span><button id="refreshBtn">تحديث</button><button id="logoutBtn">تسجيل الخروج</button></div></header>
   <section id="dashboardPage">
+    <div id="studentDashboardRoot"></div>
    <div class="dashboard-brand-hero">
     <div class="dashboard-brand-copy"><span class="dashboard-brand-kicker">CLOUD EDUCATION SUITE</span><h2>مرحبًا بك في <strong>VERA CLOUD</strong></h2><p>منصتك التعليمية السحابية المتكاملة للتعلّم والإدارة والإنجاز.</p></div>
     <div class="dashboard-brand-mark"><img src="IMG-20261121-WA0003.jpg" alt="شعار منصة VERA CLOUD"></div>
@@ -304,7 +305,7 @@ $('aboutPage').onclick=e=>{const b=e.target.closest('[data-about-page]');if(!b)r
 $('refreshBtn').onclick=()=>currentPage==='dashboard'?loadDashboard():currentPage==='about'?toast('صفحة التعريف محدثة'):loadTable();
 async function count(table){const {count,error}=await sb.from(table).select('*',{count:'exact',head:true});if(error)return '—';return count??0}
 async function loadStudentDashboard(){
- const root=$('dashboardPage');
+ const root=$('studentDashboardRoot');
  root.innerHTML='<div class="student-welcome"><div><span class="student-kicker">VERA CLOUD · STUDENT PORTAL</span><h2>مرحباً بعودتك، <span id="studentWelcomeName">طالبنا العزيز</span></h2><p>هنا تجد رحلتك التعليمية ودوراتك ونتائجك ومحاضراتك في مكان واحد.</p></div><div class="student-welcome-mark">✦</div></div><div id="studentDashStatus" class="muted" style="margin:8px 2px 14px">جارٍ تحميل بياناتك الأكاديمية...</div><div id="studentDashContent"></div>';
  const area=$('studentDashContent');
  const {data:student,error:studentError}=await sb.from('students').select('id,student_no,full_name,email,status').eq('auth_user_id',user.id).maybeSingle();
