@@ -518,7 +518,9 @@ async function openLiveRoom(id){
  const {data:c,error}=await sb.from('live_classes').select('id,title,description,status,course_id,scheduled_at').eq('id',id).single();
  if(error)throw error;
  activeLiveClass=c;
- const canPublish=['admin','teacher'].includes(role);
+ const {data:liveProfile,error:liveProfileError}=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
+ if(liveProfileError||!liveProfile)throw new Error('تعذر التحقق من دور حسابك قبل دخول الفصل.');
+ const canPublish=['admin','teacher'].includes(liveProfile.role);
  const room=$('liveRoomArea');
  room.innerHTML='<section class="live-card" style="margin-top:16px"><div class="actions" style="justify-content:space-between"><div><span class="badge">الفصل الافتراضي المباشر</span><h2 style="margin:9px 0">'+esc(c.title)+'</h2></div><button id="closeLiveRoom">إغلاق الفصل</button></div><div class="notice" id="liveConnectionStatus" style="margin:10px 0">غير متصل بالبث المباشر</div><div class="live-video" id="liveRemoteGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;min-height:180px"><div class="video-placeholder" id="liveWaitingMessage">اضغط «اتصال بالبث المباشر» لمشاهدة المحاضرة</div></div><div class="live-video" id="liveLocalTile" style="display:none;margin-top:12px"><b>معاينة المدرّس</b></div><div class="actions" style="margin-top:10px"><button class="primary" id="liveConnectBtn">اتصال بالبث المباشر</button>'+(canPublish?'<button id="liveCameraToggle" disabled>إيقاف الكاميرا</button><button id="liveMicToggle" disabled>إيقاف الميكروفون</button>':'')+'<button id="liveDisconnectBtn" disabled>مغادرة البث</button></div><p class="muted" style="margin-top:8px">المدرّس والمدير العام يمكنهما إرسال الصوت والصورة. الطالب يشاهد ويستمع، وتبقى الدردشة والملاحظات متاحة.</p><h3 style="margin-top:18px">ملاحظاتك الخاصة</h3><textarea id="liveNote" class="field" rows="5" placeholder="اكتب ملاحظات المحاضرة هنا..."></textarea><button id="saveLiveNote" class="primary">حفظ ملاحظاتي</button><h3 style="margin-top:18px">الدردشة المباشرة</h3><div id="liveChatMessages" class="live-chat"><div class="muted">جارٍ تحميل الرسائل...</div></div><form id="liveChatForm" class="live-input"><input class="field" name="message" maxlength="3000" placeholder="اكتب رسالة..." required style="margin:0"><button class="primary" type="submit">إرسال</button></form></section>';
  const statusEl=$('liveConnectionStatus'),connectBtn=$('liveConnectBtn'),disconnectBtn=$('liveDisconnectBtn');
@@ -560,12 +562,15 @@ async function openLiveRoom(id){
     const tile=Array.from(remoteGrid.children).find(x=>x.dataset.identity===participant.identity);
     if(tile&&tile.querySelectorAll('video,audio').length===0)tile.remove();
    });
+   const updateParticipantCount=()=>setStatus('متصل بالمحاضرة · '+lkRoom.remoteParticipants.size+' مشارك');
+   lkRoom.on(LK.RoomEvent.ParticipantConnected,updateParticipantCount);
    lkRoom.on(LK.RoomEvent.ParticipantDisconnected,participant=>{
     const tile=Array.from(remoteGrid.children).find(x=>x.dataset.identity===participant.identity);if(tile)tile.remove();
+    updateParticipantCount();
    });
    lkRoom.on(LK.RoomEvent.Disconnected,()=>{if(liveKitRoom===lkRoom)liveKitRoom=null;setStatus('انقطع الاتصال بالبث');disconnectBtn.disabled=true;connectBtn.disabled=false;connectBtn.textContent='إعادة الاتصال'});
    await lkRoom.connect(tokenData.server_url,tokenData.participant_token);
-   setStatus('متصل بالمحاضرة · '+(lkRoom.remoteParticipants.size||0)+' مشارك');
+   updateParticipantCount();
    disconnectBtn.disabled=false;connectBtn.textContent='متصل بالبث';
    if(canPublish){
     try{
