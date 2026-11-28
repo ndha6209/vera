@@ -125,6 +125,7 @@
 <div id="announcementSpotlight" class="announcement-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="spotlightTitle"><article class="announcement-pop"><div class="announcement-pop-inner"><div class="announcement-kicker">VERA CLOUD · إعلان مهم</div><img id="spotlightImage" class="hidden" alt="صورة الإعلان"><h2 id="spotlightTitle"></h2><p id="spotlightBody"></p><div class="announcement-pop-actions"><small id="spotlightTimer" style="color:#b8cdbd"></small><button id="spotlightClose" type="button">حسنًا، فهمت</button></div></div></article></div>
 
 <script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const cfg=window.VERA_CONFIG||{};
@@ -481,7 +482,7 @@ $('tableArea').addEventListener('click',async e=>{
  if(!confirm((next?'إعادة تفعيل':'إيقاف')+' حساب '+(target.full_name||'هذا المستخدم')+'؟'))return;
  await saveManagedProfile(target.id,target.role,next);
 });
-var liveChatChannel=null,activeLiveClass=null,liveCameraStream=null;
+var liveChatChannel=null,activeLiveClass=null,liveCameraStream=null,liveKitRoom=null;
 async function loadLiveClasses(){
  $('tableTitle').textContent='المحاضرات المباشرة والفصول الافتراضية';
  $('addBtn').classList.add('hidden');$('searchInput').classList.add('hidden');
@@ -512,18 +513,98 @@ async function loadLiveClasses(){
 }
 async function openLiveRoom(id){
  if(liveChatChannel){await sb.removeChannel(liveChatChannel);liveChatChannel=null}
+ if(liveKitRoom){try{await liveKitRoom.disconnect()}catch{}liveKitRoom=null}
  if(liveCameraStream){liveCameraStream.getTracks().forEach(t=>t.stop());liveCameraStream=null}
  const {data:c,error}=await sb.from('live_classes').select('id,title,description,status,course_id,scheduled_at').eq('id',id).single();
- if(error){toast(error.message,true);return}
+ if(error)throw error;
  activeLiveClass=c;
+ const canPublish=['admin','teacher'].includes(role);
  const room=$('liveRoomArea');
- room.innerHTML='<section class="live-card" style="margin-top:16px"><div class="actions" style="justify-content:space-between"><div><span class="badge">الفصل الافتراضي</span><h2 style="margin:9px 0">'+esc(c.title)+'</h2></div><button id="closeLiveRoom">إغلاق الفصل</button></div><div class="live-room"><div><div class="live-video" id="liveVideoBox"><div class="video-placeholder">📹<h3>مساحة البث المباشر</h3><p>يمكنك تشغيل معاينة الكاميرا المحلية. البث للطلاب يحتاج تفعيل خدمة الفيديو المباشر في المرحلة التالية.</p></div></div><div class="actions" style="margin-top:10px"><button id="cameraToggle">تشغيل الكاميرا للمعاينة</button><button id="cameraStop">إيقاف الكاميرا</button></div><div class="notice" style="margin-top:10px">ملاحظة: معاينة الكاميرا هنا محلية على جهازك فقط، ولا تُرسل فيديو للطلاب بعد. سنربط البث ثنائي الاتجاه بخدمة فيديو آمنة في المرحلة التالية.</div><h3 style="margin-top:18px">ملاحظاتك الخاصة</h3><textarea id="liveNote" class="field" rows="5" placeholder="اكتب ملاحظات المحاضرة هنا..."></textarea><button id="saveLiveNote" class="primary">حفظ ملاحظاتي</button></div><div><h3>الدردشة المباشرة</h3><div id="liveChatMessages" class="live-chat"><div class="muted">جارٍ تحميل الرسائل...</div></div><form id="liveChatForm" class="live-input"><input class="field" name="message" maxlength="3000" placeholder="اكتب رسالة..." required style="margin:0"><button class="primary" type="submit">إرسال</button></form></div></div></section>';
- $('closeLiveRoom').onclick=()=>{if(liveChatChannel)sb.removeChannel(liveChatChannel);liveChatChannel=null;if(liveCameraStream)liveCameraStream.getTracks().forEach(t=>t.stop());liveCameraStream=null;room.innerHTML=''};
+ room.innerHTML='<section class="live-card" style="margin-top:16px"><div class="actions" style="justify-content:space-between"><div><span class="badge">الفصل الافتراضي المباشر</span><h2 style="margin:9px 0">'+esc(c.title)+'</h2></div><button id="closeLiveRoom">إغلاق الفصل</button></div><div class="notice" id="liveConnectionStatus" style="margin:10px 0">غير متصل بالبث المباشر</div><div class="live-video" id="liveRemoteGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;min-height:180px"><div class="video-placeholder" id="liveWaitingMessage">اضغط «اتصال بالبث المباشر» لمشاهدة المحاضرة</div></div><div class="live-video" id="liveLocalTile" style="display:none;margin-top:12px"><b>معاينة المدرّس</b></div><div class="actions" style="margin-top:10px"><button class="primary" id="liveConnectBtn">اتصال بالبث المباشر</button>'+(canPublish?'<button id="liveCameraToggle" disabled>إيقاف الكاميرا</button><button id="liveMicToggle" disabled>إيقاف الميكروفون</button>':'')+'<button id="liveDisconnectBtn" disabled>مغادرة البث</button></div><p class="muted" style="margin-top:8px">المدرّس والمدير العام يمكنهما إرسال الصوت والصورة. الطالب يشاهد ويستمع، وتبقى الدردشة والملاحظات متاحة.</p><h3 style="margin-top:18px">ملاحظاتك الخاصة</h3><textarea id="liveNote" class="field" rows="5" placeholder="اكتب ملاحظات المحاضرة هنا..."></textarea><button id="saveLiveNote" class="primary">حفظ ملاحظاتي</button><h3 style="margin-top:18px">الدردشة المباشرة</h3><div id="liveChatMessages" class="live-chat"><div class="muted">جارٍ تحميل الرسائل...</div></div><form id="liveChatForm" class="live-input"><input class="field" name="message" maxlength="3000" placeholder="اكتب رسالة..." required style="margin:0"><button class="primary" type="submit">إرسال</button></form></section>';
+ const statusEl=$('liveConnectionStatus'),connectBtn=$('liveConnectBtn'),disconnectBtn=$('liveDisconnectBtn');
+ let cameraOn=true,micOn=true;
+ const setStatus=t=>{if(statusEl)statusEl.textContent=t};
+ const closeRoom=async()=>{
+  if(liveKitRoom){try{await liveKitRoom.disconnect()}catch{}liveKitRoom=null}
+  if(liveCameraStream){liveCameraStream.getTracks().forEach(t=>t.stop());liveCameraStream=null}
+  if(liveChatChannel){await sb.removeChannel(liveChatChannel);liveChatChannel=null}
+  room.innerHTML='';
+ };
+ $('closeLiveRoom').onclick=closeRoom;
+ connectBtn.onclick=async()=>{
+  if(liveKitRoom)return;
+  connectBtn.disabled=true;connectBtn.textContent='جارٍ الاتصال...';setStatus('جارٍ التحقق من الصلاحية وتجهيز الاتصال...');
+  try{
+   const LK=window.LivekitClient;
+   if(!LK?.Room)throw new Error('تعذر تحميل مكتبة البث. حدّث الصفحة وتأكد من اتصال الإنترنت.');
+   const {data:tokenData,error:tokenError}=await sb.functions.invoke('livekit-token',{body:{session_id:id}});
+   if(tokenError)throw new Error(tokenData?.error||tokenError.message||'تعذر الحصول على تصريح البث');
+   if(!tokenData?.participant_token||!tokenData?.server_url)throw new Error(tokenData?.error||'لم تصل بيانات الاتصال من الخادم');
+   const lkRoom=new LK.Room({adaptiveStream:true,dynacast:true});
+   liveKitRoom=lkRoom;
+   const remoteGrid=$('liveRemoteGrid');
+   const tileFor=participant=>{
+    let tile=Array.from(remoteGrid.children).find(x=>x.dataset.identity===participant.identity);
+    if(!tile){tile=document.createElement('div');tile.dataset.identity=participant.identity;tile.className='live-card';tile.style.padding='10px';tile.innerHTML='<b>'+esc(participant.name||'مشارك')+'</b>';remoteGrid.appendChild(tile)}
+    return tile;
+   };
+   lkRoom.on(LK.RoomEvent.TrackSubscribed,(track,publication,participant)=>{
+    $('liveWaitingMessage')?.remove();
+    const tile=tileFor(participant);
+    const media=track.attach();media.autoplay=true;media.playsInline=true;media.style.width='100%';media.style.maxHeight='420px';media.style.borderRadius='12px';
+    tile.appendChild(media);
+    if(track.kind==='audio')media.play?.().catch(()=>{});
+   });
+   lkRoom.on(LK.RoomEvent.TrackUnsubscribed,(track,publication,participant)=>{
+    track.detach().forEach(el=>el.remove());
+    const tile=Array.from(remoteGrid.children).find(x=>x.dataset.identity===participant.identity);
+    if(tile&&tile.querySelectorAll('video,audio').length===0)tile.remove();
+   });
+   lkRoom.on(LK.RoomEvent.ParticipantDisconnected,participant=>{
+    const tile=Array.from(remoteGrid.children).find(x=>x.dataset.identity===participant.identity);if(tile)tile.remove();
+   });
+   lkRoom.on(LK.RoomEvent.Disconnected,()=>{if(liveKitRoom===lkRoom)liveKitRoom=null;setStatus('انقطع الاتصال بالبث');disconnectBtn.disabled=true;connectBtn.disabled=false;connectBtn.textContent='إعادة الاتصال'});
+   await lkRoom.connect(tokenData.server_url,tokenData.participant_token);
+   setStatus('متصل بالمحاضرة · '+(lkRoom.remoteParticipants.size||0)+' مشارك');
+   disconnectBtn.disabled=false;connectBtn.textContent='متصل بالبث';
+   if(canPublish){
+    try{
+     await lkRoom.localParticipant.enableCameraAndMicrophone();
+     const localTile=$('liveLocalTile');localTile.style.display='block';
+     lkRoom.localParticipant.videoTrackPublications.forEach(pub=>{
+      if(pub.track){const media=pub.track.attach();media.muted=true;media.autoplay=true;media.playsInline=true;media.style.width='100%';media.style.maxHeight='360px';localTile.appendChild(media)}
+     });
+     $('liveCameraToggle').disabled=false;$('liveMicToggle').disabled=false;
+    }catch(mediaError){toast('اتصلت بالغرفة، لكن تعذر تشغيل الكاميرا أو الميكروفون: '+(mediaError?.message||''),true)}
+   }
+   toast('تم الاتصال بالمحاضرة المباشرة');
+  }catch(err){
+   if(liveKitRoom){try{await liveKitRoom.disconnect()}catch{}liveKitRoom=null}
+   setStatus('تعذر الاتصال: '+(err?.message||'خطأ غير معروف'));toast('تعذر الاتصال بالبث: '+(err?.message||'خطأ غير معروف'),true);
+   connectBtn.disabled=false;connectBtn.textContent='إعادة المحاولة';
+  }
+ };
+ if(canPublish){
+  $('liveCameraToggle').onclick=async()=>{
+   if(!liveKitRoom)return;
+   try{cameraOn=!cameraOn;await liveKitRoom.localParticipant.setCameraEnabled(cameraOn);$('liveCameraToggle').textContent=cameraOn?'إيقاف الكاميرا':'تشغيل الكاميرا'}
+   catch(e){cameraOn=!cameraOn;toast('تعذر تغيير الكاميرا: '+e.message,true)}
+  };
+  $('liveMicToggle').onclick=async()=>{
+   if(!liveKitRoom)return;
+   try{micOn=!micOn;await liveKitRoom.localParticipant.setMicrophoneEnabled(micOn);$('liveMicToggle').textContent=micOn?'إيقاف الميكروفون':'تشغيل الميكروفون'}
+   catch(e){micOn=!micOn;toast('تعذر تغيير الميكروفون: '+e.message,true)}
+  };
+ }
+ disconnectBtn.onclick=async()=>{
+  if(liveKitRoom){try{await liveKitRoom.disconnect()}catch{}liveKitRoom=null}
+  $('liveLocalTile').innerHTML='<b>تم إيقاف بثك المحلي</b>'; $('liveLocalTile').style.display='none';
+  $('liveCameraToggle')&&($('liveCameraToggle').disabled=true);$('liveMicToggle')&&($('liveMicToggle').disabled=true);
+  disconnectBtn.disabled=true;connectBtn.disabled=false;connectBtn.textContent='إعادة الاتصال';setStatus('تم قطع الاتصال');
+ };
  const {data:note,error:noteErr}=await sb.from('live_class_notes').select('note').eq('session_id',id).eq('user_id',user.id).maybeSingle();
  if(noteErr)toast('تعذر تحميل الملاحظات: '+noteErr.message,true);$('liveNote').value=note?.note||'';
  $('saveLiveNote').onclick=async()=>{const {error}=await sb.from('live_class_notes').upsert({session_id:id,user_id:user.id,note:$('liveNote').value,updated_at:new Date().toISOString()},{onConflict:'session_id,user_id'});if(error)toast(error.message,true);else toast('تم حفظ ملاحظاتك')};
- $('cameraToggle').onclick=async()=>{try{if(!navigator.mediaDevices?.getUserMedia)throw new Error('المتصفح لا يدعم الوصول إلى الكاميرا');liveCameraStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});$('liveVideoBox').innerHTML='<video id="localLiveVideo" autoplay muted playsinline></video>'; $('localLiveVideo').srcObject=liveCameraStream;toast('تم تشغيل المعاينة المحلية للكاميرا والميكروفون')}catch(e){toast('تعذر تشغيل الكاميرا: '+e.message,true)}};
- $('cameraStop').onclick=()=>{if(liveCameraStream)liveCameraStream.getTracks().forEach(t=>t.stop());liveCameraStream=null;$('liveVideoBox').innerHTML='<div class="video-placeholder">تم إيقاف معاينة الكاميرا</div>'};
  async function refreshLiveChat(){const {data,error}=await sb.from('live_class_messages').select('id,sender_id,message,created_at').eq('session_id',id).order('created_at',{ascending:true}).limit(100);if(error){$('liveChatMessages').innerHTML='<div class="muted">'+esc(error.message)+'</div>';return}const ids=[...new Set((data||[]).map(x=>x.sender_id))];let names={};if(ids.length){const p=await sb.from('profiles').select('id,full_name').in('id',ids);if(!p.error)(p.data||[]).forEach(x=>names[x.id]=x.full_name||'مستخدم')}$('liveChatMessages').innerHTML=(data||[]).map(m=>'<div class="live-msg"><b>'+esc(names[m.sender_id]||'مستخدم')+'</b><div>'+esc(m.message)+'</div><small>'+esc(new Date(m.created_at).toLocaleTimeString('ar-YE'))+'</small></div>').join('')||'<div class="muted">لا توجد رسائل بعد. ابدأ المحادثة.</div>';$('liveChatMessages').scrollTop=$('liveChatMessages').scrollHeight}
  await refreshLiveChat();
  $('liveChatForm').onsubmit=async e=>{e.preventDefault();const input=e.target.elements.message;const message=input.value.trim();if(!message)return;const {error}=await sb.from('live_class_messages').insert({session_id:id,sender_id:user.id,message});if(error){toast(error.message,true);return}input.value='';await refreshLiveChat()};
